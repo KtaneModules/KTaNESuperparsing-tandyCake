@@ -49,7 +49,7 @@ public class SuperparsingScript : MonoBehaviour {
     private readonly string[] quadrantPositions = new[] { "top-left", "top-right", "bottom-left", "bottom-right" };
     private readonly string[] switchPositions = new[] { "Down", "Up" };
     private readonly string[] sliderPositions = new[] { "Left", "Middle", "Right" };
-    private readonly string[] dialPositions = new[] { "North", "East", "South", "West   " };
+    private readonly string[] dialPositions = new[] { "North", "East", "South", "West" };
     int correctQuadrant;
     bool[] currentSwitches = new bool[2] { true, true };
     bool[] correctSwitches = new bool[2];
@@ -116,6 +116,9 @@ public class SuperparsingScript : MonoBehaviour {
         wordDisplay.OnInteract += delegate () { StartTimer(); return false; };
         for (int i = 0; i < 4; i++)
             squareTransforms[i] = squares[i].transform.localPosition;
+        ModConfig<SuperparsingSettings> config = new ModConfig<SuperparsingSettings>("SuperparsingSettings");
+        settings = config.Read();
+        config.Write(settings);
         timeLimit = settings.timer <= 0 ? 10 : settings.timer;
         shakeFactor = settings.shakeF;
         Module.OnActivate += delegate () { Audio.PlaySoundAtTransform("startup", transform); if (TwitchPlaysActive) timeLimit = 20; };
@@ -358,6 +361,7 @@ public class SuperparsingScript : MonoBehaviour {
         Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, wordDisplay.transform);
         if (started || moduleSolved)
             return;
+        started = true;
         StartCoroutine(Begin());
 
     }
@@ -417,7 +421,6 @@ public class SuperparsingScript : MonoBehaviour {
     {
         yield return null;
         yield return new WaitForSeconds(1);
-        started = true;
         displayedWord = WordList.words.Where(word => word.Any(ch => GetDialString().Contains(ch))).PickRandom(); //Guarantees that there's a valid dial answer.
         wordDisplay.GetComponentInChildren<TextMesh>().text = displayedWord;
         Debug.LogFormat("[Superparsing #{0}] The displayed word is {1}. Let the games begin.", moduleId, displayedWord);
