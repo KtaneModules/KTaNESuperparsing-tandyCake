@@ -24,7 +24,7 @@ public class SuperparsingScript : MonoBehaviour {
     public GameObject meter;
     public MeshRenderer[] highlights;
     public Material highlightcol;
-    private float timeLimit = 10f;
+    private float timeLimit, shakeFactor;
     private float timeLerp = 0f;
     private Coroutine timerCor;
     public GameObject[] sliderKnobs;
@@ -65,6 +65,36 @@ public class SuperparsingScript : MonoBehaviour {
     bool dialFlipped;
     public bool TwitchPlaysActive;
 
+    class SuperparsingSettings
+    {
+        public float timer = 10;
+        public float shakeF = 1;
+    }
+    SuperparsingSettings settings = new SuperparsingSettings();
+    private static Dictionary<string, object>[] TweaksEditorSettings = new Dictionary<string, object>[]
+    {
+          new Dictionary<string, object>
+          {
+            { "Filename", "SuperparsingSettings.json"},
+            { "Name", "Superparsing" },
+            { "Listings", new List<Dictionary<string, object>>
+                {
+                  new Dictionary<string, object>
+                  {
+                    { "Key", "timer" },
+                    { "Text", "Time limit of the module."}
+                  },
+                  new Dictionary<string, object>
+                  {
+                    { "Key", "shakeF" },
+                    { "Text", "Just for fun, alters how much the mod shakes when heating up."}
+                  }
+
+                }
+            }
+          }
+    };
+
     void Awake ()
     {
         moduleId = moduleIdCounter++;
@@ -86,6 +116,8 @@ public class SuperparsingScript : MonoBehaviour {
         wordDisplay.OnInteract += delegate () { StartTimer(); return false; };
         for (int i = 0; i < 4; i++)
             squareTransforms[i] = squares[i].transform.localPosition;
+        timeLimit = settings.timer <= 0 ? 10 : settings.timer;
+        shakeFactor = settings.shakeF;
         Module.OnActivate += delegate () { Audio.PlaySoundAtTransform("startup", transform); if (TwitchPlaysActive) timeLimit = 20; };
     }
 
@@ -128,7 +160,7 @@ public class SuperparsingScript : MonoBehaviour {
         meter.SetActive(timeLerp > 0);
         meter.transform.localScale = new Vector3(1, 1, timeLerp);
         modBG.GetComponent<MeshRenderer>().material.color = Color.Lerp("2D1C1C".Color(), "FF2020".Color(), Mathf.Pow(timeLerp, 3));
-        modBG.transform.localPosition = new Vector3(UnityEngine.Random.Range(-0.025f, 0.025f), 0, UnityEngine.Random.Range(-0.025f, 0.025f)) * Mathf.Pow(timeLerp, 6);
+        modBG.transform.localPosition = shakeFactor * new Vector3(UnityEngine.Random.Range(-0.025f, 0.025f), 0, UnityEngine.Random.Range(-0.025f, 0.025f)) * Mathf.Pow(timeLerp, 6);
     }
     IEnumerator HeatUp()
     {
