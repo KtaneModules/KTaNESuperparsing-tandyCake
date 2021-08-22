@@ -47,7 +47,6 @@ public class SuperparsingScript : MonoBehaviour {
 
     string displayedWord;
     private readonly string[] quadrantPositions = new[] { "top-left", "top-right", "bottom-left", "bottom-right" };
-    private readonly string[] switchPositions = new[] { "Down", "Up" };
     private readonly string[] sliderPositions = new[] { "Left", "Middle", "Right" };
     private readonly string[] dialPositions = new[] { "North", "East", "South", "West" };
     int correctQuadrant;
@@ -202,12 +201,12 @@ public class SuperparsingScript : MonoBehaviour {
     #region OnInteract Handlers
     void QuadrantPress(int pos)
     {
+        Audio.PlaySoundAtTransform("quadrantpress", quadrants[pos].transform);
+        quadrants[pos].AddInteractionPunch(0.3f);
         if (stagesSolved[0] || !started)
             return;
-        quadrants[pos].AddInteractionPunch(0.3f);
         if (pos == correctQuadrant)
         {
-            Audio.PlaySoundAtTransform("quadrantpress", quadrants[pos].transform);
             Debug.LogFormat("[Superparsing #{0}] You pressed the {1} quadrant, square disarmed.", moduleId, quadrantPositions[pos]);
             Solve(0);
             StartCoroutine(QuadrantsFade(Color.black));
@@ -248,15 +247,18 @@ public class SuperparsingScript : MonoBehaviour {
     IEnumerator SwitchSubmit()
     {
         yield return new WaitForSeconds(0.3f);
-        if (currentSwitches.SequenceEqual(correctSwitches))
+        if (started)
         {
-            Debug.LogFormat("[Superparsing #{0}] Switches submitted with positions {1}. Square disarmed.", moduleId, currentSwitches.Select(x => x ? "Up" : "Down").Join(", "));
-            Solve(1);
-        }
-        else
-        {
-            Debug.LogFormat("[Superparsing #{0}] Switches submitted with positions {1}. Strike.", moduleId, currentSwitches.Select(x => x ? "Up" : "Down").Join(", "));
-            Strike();
+            if (currentSwitches.SequenceEqual(correctSwitches))
+            {
+                Debug.LogFormat("[Superparsing #{0}] Switches submitted with positions {1}. Square disarmed.", moduleId, currentSwitches.Select(x => x ? "Up" : "Down").Join(", "));
+                Solve(1);
+            }
+            else
+            {
+                Debug.LogFormat("[Superparsing #{0}] Switches submitted with positions {1}. Strike.", moduleId, currentSwitches.Select(x => x ? "Up" : "Down").Join(", "));
+                Strike();
+            }
         }
     }
     IEnumerator MoveSwitch(int pos)
@@ -321,21 +323,22 @@ public class SuperparsingScript : MonoBehaviour {
         dialPos++;
         dialPos %= 4;
         Audio.PlaySoundAtTransform("knob", dial.transform);
-        dialMovements.Enqueue(DialSpin());
-        if (!dialSpinning)
-            StartCoroutine(dialMovements.Dequeue());
+        StartCoroutine(DialSpin());
     }
     IEnumerator DialSpin()
     {
+        yield return new WaitUntil(() => !dialSpinning);
         dialSpinning = true;
-        for (int i = 0; i < 15; i++)
+        Vector3 current = dial.transform.localEulerAngles;
+        Vector3 target = current + 90 * Vector3.forward;
+        float delta = 0;
+        while (delta < 1)
         {
-            dial.transform.localEulerAngles += 6 * Vector3.forward;
+            delta += 5 * Time.deltaTime;
             yield return null;
+            dial.transform.localEulerAngles = Vector3.Lerp(current, target, delta);
         }
         dialSpinning = false;
-        if (dialMovements.Count != 0)
-            StartCoroutine(dialMovements.Dequeue());
 
     }
     void SubmitDial()
