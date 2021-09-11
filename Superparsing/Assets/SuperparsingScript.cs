@@ -200,9 +200,11 @@ public class SuperparsingScript : MonoBehaviour {
     #region OnInteract Handlers
     void QuadrantPress(int pos)
     {
+        if (stagesSolved[0])
+            return;
         Audio.PlaySoundAtTransform("quadrantpress", quadrants[pos].transform);
         quadrants[pos].AddInteractionPunch(0.3f);
-        if (stagesSolved[0] || !started)
+        if (started)
             return;
         if (pos == correctQuadrant)
         {
@@ -622,7 +624,7 @@ public class SuperparsingScript : MonoBehaviour {
             yield return true;
         if (!started)
             yield return Press(wordDisplay, 0.1f);
-        yield return new WaitUntil(() => started);
+        yield return new WaitUntil(() => wordDisplay.GetComponentInChildren<TextMesh>().text != string.Empty);
         if (!stagesSolved[0])
             yield return SolveQuadrants();
         if (!stagesSolved[1])
