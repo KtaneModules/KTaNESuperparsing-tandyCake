@@ -24,6 +24,6 @@ MonoBehaviour:
     moduleID: superparsing
 
     Manual can be found at ktane.timwi.de'
-  version: 1.0.0
+  version: 1.1.3
   outputFolder: build
   previewImage: {fileID: 2800000, guid: b914df3b90811b140ba37995e121c254, type: 3}

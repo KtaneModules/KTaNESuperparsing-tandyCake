@@ -49,7 +49,7 @@ public class SuperparsingScript : MonoBehaviour {
     private readonly string[] quadrantPositions = new[] { "top-left", "top-right", "bottom-left", "bottom-right" };
     private readonly string[] sliderPositions = new[] { "Left", "Middle", "Right" };
     private readonly string[] dialPositions = new[] { "North", "East", "South", "West" };
-    int correctQuadrant;
+    int correctQuadrant = -1;
     bool[] currentSwitches = new bool[2] { true, true };
     bool[] correctSwitches = new bool[2];
     bool[] switchesMoving = new bool[2];
@@ -58,11 +58,10 @@ public class SuperparsingScript : MonoBehaviour {
     int[] correctSliders = new int[3];
     Coroutine[] sliderMovements = new Coroutine[3];
     bool dialSpinning;
-    Queue<IEnumerator> dialMovements = new Queue<IEnumerator>();
     int dialPos;
     int[] correctDialPositions;
     bool dialFlipped;
-    public bool TwitchPlaysActive;
+    bool TwitchPlaysActive;
 
     class SuperparsingSettings
     {
@@ -563,6 +562,11 @@ public class SuperparsingScript : MonoBehaviour {
     private readonly string TwitchHelpMessage = @"Use [!{0} start] to press the display. Use [!{0} press TL/TR/BL/BR/] to press that quadrant. Use [!{0} flip 1 2 1] to flip those switches. Use [!{0} set L M R] to set the sliders to left, middle and right positions and submit. Use [!{0} turn N/E/W/S] to set the dial to that position and submit. On TP, the timer is set to 20 seconds.";
     #pragma warning restore 414
 
+    IEnumerator Press(KMSelectable btn, float delay)
+    {
+        btn.OnInteract();
+        yield return new WaitForSeconds(delay);
+    }
     IEnumerator ProcessTwitchCommand (string command)
     {
         string[] dialCmds = new[] { "N", "E", "S", "W", "NORTH", "EAST", "SOUTH", "WEST", "U", "R", "D", "L", "UP", "RIGHT", "DOWN", "LEFT" };
@@ -571,25 +575,20 @@ public class SuperparsingScript : MonoBehaviour {
         if (command == "START")
         {
             yield return null;
-            wordDisplay.OnInteract();
+            yield return Press(wordDisplay, 0.1f);
         }
         else if (Regex.IsMatch(command, @"^PRESS\s+[TB][LR]$"))
         {
             string[] abbr = new[] { "TL", "TR", "BL", "BR" };
             yield return null;
-            quadrants[Array.IndexOf(abbr, command.TakeLast(2).Join(""))].OnInteract();
+            yield return Press(quadrants[Array.IndexOf(abbr, command.TakeLast(2).Join(""))], 0.1f);
         }
         else if (Regex.IsMatch(command, @"^FLIP\s+([12]\s*)+$"))
         {
             yield return null;
             foreach (string str in parameters.Skip(1))
-            {
                 foreach (int num in str.Select(x => x - '1'))
-                {
-                    switches[num].OnInteract();
-                    yield return new WaitForSeconds(0.55f);
-                }
-            }
+                    yield return Press(switches[num], 0.55f);
         }
         else if (Regex.IsMatch(command, @"^SET\s+([LMR]\s+){2}[LMR]$"))
         {
@@ -599,28 +598,19 @@ public class SuperparsingScript : MonoBehaviour {
             for (int i = 0; i < 3; i++)
             {
                 while (currentSliders[i] < sets[i])
-                {
-                    slidersRight[i].OnInteract();
-                    yield return new WaitForSeconds(0.2f);
-                }
+                    yield return Press(slidersRight[i], 0.2f);
                 while (currentSliders[i] > sets[i])
-                {
-                    slidersLeft[i].OnInteract();
-                    yield return new WaitForSeconds(0.2f);
-                }
+                    yield return Press(slidersLeft[i], 0.2f);
             }
-            sliderSubmit.OnInteract();
+            yield return Press(sliderSubmit, 0.1f);
         }
         else if (parameters.Count == 2 && parameters[0] == "TURN" && dialCmds.Contains(parameters[1]))
         {
             yield return null;
             int targetPos = Array.IndexOf(dialCmds, parameters[1]) % 4;
             while (dialPos != targetPos)
-            {
-                dial.OnInteract();
-                yield return new WaitForSeconds(0.2f);
-            }
-            dialSubmit.OnInteract();
+                yield return Press(dial, 0.2f);
+            yield return Press(dialSubmit, 0.1f);
         }
         else yield break;
         yield return moduleSolved ? "solve" : "strike";
@@ -631,60 +621,50 @@ public class SuperparsingScript : MonoBehaviour {
         while (coolingDown)
             yield return true;
         if (!started)
-            wordDisplay.OnInteract();
-        while (!started)
-            yield return null;
+            yield return Press(wordDisplay, 0.1f);
+        yield return new WaitUntil(() => started);
         if (!stagesSolved[0])
-        {
-            quadrants[correctQuadrant].OnInteract();
-            yield return new WaitForSeconds(0.2f);
-        }
+            yield return SolveQuadrants();
         if (!stagesSolved[1])
-        {
-            if (currentSwitches[0] != correctSwitches[0])
-            {
-                switches[0].OnInteract();
-                yield return new WaitForSeconds(0.55f);
-            }
-            if (currentSwitches[1] != correctSwitches[1])
-            {
-                switches[1].OnInteract();
-                yield return new WaitForSeconds(0.55f); 
-            }
-            if (prevSwitch == -1)
-                prevSwitch = 1;
-            switches[1 - prevSwitch].OnInteract();
-            yield return new WaitForSeconds(0.55f);
-            switches[prevSwitch].OnInteract();
-        }
+            yield return SolveSwitches();
         if (!stagesSolved[2])
-        {
-            for (int i = 0; i < 3; i++)
-            {
-                while (currentSliders[i] < correctSliders[i])
-                {
-                    slidersRight[i].OnInteract();
-                    yield return new WaitForSeconds(0.3f);
-                }
-                while (currentSliders[i] > correctSliders[i])
-                {
-                    slidersLeft[i].OnInteract();
-                    yield return new WaitForSeconds(0.3f);
-                }
-            }
-            sliderSubmit.OnInteract();
-            yield return new WaitForSeconds(0.3f);
-        }
+            yield return SolveSliders();
         if (!stagesSolved[3])
-        {
-            while (!correctDialPositions.Contains(dialPos))
-            {
-                dial.OnInteract();
-                yield return new WaitForSeconds(0.3f);
-            }
-            dialSubmit.OnInteract();
-        }
+            yield return SolveDial();
         while (timeLerp > 0)
             yield return true;
+    }
+    IEnumerator SolveQuadrants()
+    {
+        yield return new WaitUntil(() => correctQuadrant != -1);
+        yield return Press(quadrants[correctQuadrant], 0.2f);
+    }
+    IEnumerator SolveSwitches()
+    {
+        if (currentSwitches[0] != correctSwitches[0])
+            yield return Press(switches[0], 0.55f);
+        if (currentSwitches[1] != correctSwitches[1])
+            yield return Press(switches[1], 0.55f);
+        if (prevSwitch == -1)
+            prevSwitch = 1;
+        yield return Press(switches[1 - prevSwitch], 0.55f);
+        yield return Press(switches[prevSwitch], 0.1f);
+    }
+    IEnumerator SolveSliders()
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            while (currentSliders[i] < correctSliders[i])
+                yield return Press(slidersRight[i], 0.3f);
+            while (currentSliders[i] > correctSliders[i])
+                yield return Press(slidersLeft[i], 0.3f);
+        }
+        yield return Press(sliderSubmit, 0.3f);
+    }
+    IEnumerator SolveDial()
+    {
+        while (!correctDialPositions.Contains(dialPos))
+            yield return Press(dial, 0.3f);
+        yield return Press(dialSubmit, 0.1f);
     }
 }
