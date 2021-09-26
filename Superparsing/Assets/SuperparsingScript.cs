@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEngine;
 using KModkit;
+using Rnd = UnityEngine.Random;
 
 public class SuperparsingScript : MonoBehaviour {
 
@@ -12,7 +13,7 @@ public class SuperparsingScript : MonoBehaviour {
     public KMAudio Audio;
     public KMBombModule Module;
 
-    public KMSelectable wordDisplay;
+    public KMSelectable displayBtn;
     public KMSelectable[] quadrants;
     public KMSelectable[] switches;
     public KMSelectable[] slidersLeft;
@@ -22,11 +23,11 @@ public class SuperparsingScript : MonoBehaviour {
     public KMSelectable dialSubmit;
     public GameObject modBG;
     public GameObject meter;
+    public TextMesh displayText;
     public MeshRenderer[] highlights;
     public Material highlightcol;
     private float timeLimit, shakeFactor;
     private float timeLerp = 0f;
-    private Coroutine timerCor;
     public GameObject[] sliderKnobs;
     public GameObject[] switchHandles;
     public GameObject dialParent;
@@ -111,57 +112,66 @@ public class SuperparsingScript : MonoBehaviour {
         dial.OnInteract += delegate () { DialPress(); return false; };
         sliderSubmit.OnInteract += delegate () { SubmitSliders(); return false; };
         dialSubmit.OnInteract += delegate () { SubmitDial(); return false; };
-        wordDisplay.OnInteract += delegate () { StartTimer(); return false; };
-        for (int i = 0; i < 4; i++)
+        displayBtn.OnInteract += delegate () { StartTimer(); return false; };
+        for (int i = 0; i < 4; i++)//Caches the initial position of each square.
             squareTransforms[i] = squares[i].transform.localPosition;
         ModConfig<SuperparsingSettings> config = new ModConfig<SuperparsingSettings>("SuperparsingSettings");
         settings = config.Read();
         config.Write(settings);
-        timeLimit = settings.timer <= 0 ? 10 : settings.timer;
+        timeLimit = settings.timer <= 0 ? 10 : settings.timer; //Time limit cannot be negative or zero
         shakeFactor = settings.shakeF;
-        Module.OnActivate += delegate () { Audio.PlaySoundAtTransform("startup", transform); if (TwitchPlaysActive) timeLimit = 20; };
+        Module.OnActivate += delegate () 
+        {
+            Audio.PlaySoundAtTransform("startup", transform); 
+            if (TwitchPlaysActive) 
+                timeLimit = 20; 
+        };
     }
 
     void Start ()
     {
-        wordDisplay.GetComponentInChildren<TextMesh>().text = string.Empty;
+        displayText.text = string.Empty;
         RandomizeData();
     }
     void RandomizeData()
     {
-        squarePositions.Shuffle();
-        for (int i = 0; i < 4; i++)
-            squares[squarePositions[i]].transform.localPosition = squareTransforms[i];
+        squarePositions.Shuffle(); //Puts the squares in a random order.
+        for (int sqIx = 0; sqIx < 4; sqIx++)
+            squares[squarePositions[sqIx]].transform.localPosition = squareTransforms[sqIx]; //Moves each square to the corresponding place in its order.
         Debug.LogFormat("[Superparsing #{0}] The squares in reading order are: {1}.", moduleId, squarePositions.Select(x => romanNumerals[x]).Join(", "));
-        for (int i = 0; i < 2; i++)
-            if (UnityEngine.Random.Range(0, 2) == 0)
+        for (int swIx = 0; swIx < 2; swIx++)
+            if (Rnd.Range(0, 2) == 0)
             {
-                switchHandles[i].transform.localEulerAngles = new Vector3(-70, 0, 0); //Flips the switch position;
-                currentSwitches[i] = false;
+                switchHandles[swIx].transform.localEulerAngles = new Vector3(-70, 0, 0); //Flips the switch position;
+                currentSwitches[swIx] = false;
             }
-        dialPos = UnityEngine.Random.Range(0, 4);
+        dialPos = Rnd.Range(0, 4);
         dial.transform.localEulerAngles = new Vector3(0, 0, 90) * dialPos;
-        for (int i = 0; i < 3; i++)
+        for (int sdIx = 0; sdIx < 3; sdIx++)
         {
-            int move = UnityEngine.Random.Range(-1, 2);//-1, 0, or 1;
-            currentSliders[i] = move;
-            sliderKnobs[i].transform.localPosition += new Vector3(0.25f, 0, 0) * move;
+            int move = Rnd.Range(-1, 2);//-1, 0, or 1;
+            currentSliders[sdIx] = move;
+            sliderKnobs[sdIx].transform.localPosition += new Vector3(0.25f, 0, 0) * move; //Moves the slider left if move == -1, right if move == +1, and does nothing if move == 0.
         }
-        if (UnityEngine.Random.Range(0,2) == 0)
+        if (Rnd.Range(0,2) == 0) //Controls whether the dial is to the right or left of the submit button.
         {
             dialFlipped = true;
-            dialParent.transform.localPosition += 0.3f * Vector3.right; //The dial is stored under a separate gameobject, so we need to drill into the parent
+            dialParent.transform.localPosition += 0.3f * Vector3.right; //The dial is stored under a separate gameobject, so we need to dig into the parent
             dialSubmit.transform.localPosition += 0.6f * Vector3.left;
         }
     }
 
     #region Timer Methods
-    void Update ()
+    void Update () //Ran once every frame; updates the bar and the background color.
     {
         meter.SetActive(timeLerp > 0);
         meter.transform.localScale = new Vector3(1, 1, timeLerp);
         modBG.GetComponent<MeshRenderer>().material.color = Color.Lerp("2D1C1C".Color(), "FF2020".Color(), Mathf.Pow(timeLerp, 3));
-        modBG.transform.localPosition = shakeFactor * new Vector3(UnityEngine.Random.Range(-0.025f, 0.025f), 0, UnityEngine.Random.Range(-0.025f, 0.025f)) * Mathf.Pow(timeLerp, 6);
+    }
+    void FixedUpdate() //Is ran 50 times per second, no matter the framerate.
+    {
+        //Sets the position of the background to a random value. The range of possible values increases as the time increases. Increases exponentially through Mathf.Pow
+        modBG.transform.localPosition = shakeFactor * Mathf.Pow(timeLerp, 6) * new Vector3(Rnd.Range(-0.025f, 0.025f), 0, Rnd.Range(-0.025f, 0.025f));
     }
     IEnumerator HeatUp()
     {
@@ -169,11 +179,11 @@ public class SuperparsingScript : MonoBehaviour {
         {
             while (timeLerp < 1)
             {
-                if (started && !coolingDown)
-                    timeLerp += 1f / timeLimit * Time.deltaTime;
+                if (started && !coolingDown) //Timer does not increase when the module is inactive or when it is cooling down.
+                    timeLerp += 1f / timeLimit * Time.deltaTime; //Increases timer.
                 yield return null;
             }
-            if (timeLerp >= 1)
+            if (timeLerp >= 1) //When the timer runs out.
             {
                 Audio.PlaySoundAtTransform("kapow", transform);
                 GetComponent<KMSelectable>().AddInteractionPunch(50);
@@ -187,7 +197,7 @@ public class SuperparsingScript : MonoBehaviour {
 
     }
     IEnumerator ReduceTimer(float threshold, float speed = 0.4f)
-    {
+    { //Threshold represents the point at which the bar stops lowering.
         while (timeLerp > threshold)
         {
             timeLerp -= Time.deltaTime * speed;
@@ -204,7 +214,7 @@ public class SuperparsingScript : MonoBehaviour {
             return;
         Audio.PlaySoundAtTransform("quadrantpress", quadrants[pos].transform);
         quadrants[pos].AddInteractionPunch(0.3f);
-        if (started)
+        if (!started)
             return;
         if (pos == correctQuadrant)
         {
@@ -218,8 +228,8 @@ public class SuperparsingScript : MonoBehaviour {
             Strike();
         }
     }
-    IEnumerator QuadrantsFade(Color target)
-    {
+    IEnumerator QuadrantsFade(Color target) 
+    {//Lerps from the current square color to a target color.
         float delta = 0;
         while (delta < 1)
         {
@@ -236,21 +246,21 @@ public class SuperparsingScript : MonoBehaviour {
     {
         if (switchesMoving[pos])
             return;
-        currentSwitches[pos] = !currentSwitches[pos];
+        currentSwitches[pos] = !currentSwitches[pos]; //Toggles the switch value.
         Audio.PlaySoundAtTransform("lever", switches[pos].transform);
         StartCoroutine(MoveSwitch(pos));
-        if (!started || stagesSolved[1])
+        if (!started || stagesSolved[1]) //If the module hasn't started yet, don't worry about checking.
             return;
-        if (prevSwitch == pos)
+        if (prevSwitch == pos) //If you flip the same switch twice in a row, submit.
             StartCoroutine(SwitchSubmit());
         prevSwitch = pos;
     }
     IEnumerator SwitchSubmit()
     {
         yield return new WaitForSeconds(0.3f);
-        if (started)
+        if (started) //Since there's a delay, this prevents switches from solving when the module is deactivated.
         {
-            if (currentSwitches.SequenceEqual(correctSwitches))
+            if (currentSwitches[0] == correctSwitches[0] && currentSwitches[1] == correctSwitches[1])
             {
                 Debug.LogFormat("[Superparsing #{0}] Switches submitted with positions {1}. Square disarmed.", moduleId, currentSwitches.Select(x => x ? "Up" : "Down").Join(", "));
                 Solve(1);
@@ -267,8 +277,8 @@ public class SuperparsingScript : MonoBehaviour {
         switchesMoving[pos] = true;
         Transform TF = switchHandles[pos].transform;
         float from = currentSwitches[pos] ? -70 : 70;
-        float to = -1 * from;
-        float startTime = Time.fixedTime;
+        float to = -from;
+        float startTime = Time.fixedTime; //Code taken from Colored Switches
         do
         {
             switchHandles[pos].transform.localEulerAngles = new Vector3(Easing.OutSine(Time.fixedTime - startTime, from, to, 0.5f), 0, 0);
@@ -280,7 +290,7 @@ public class SuperparsingScript : MonoBehaviour {
     }
     void MoveSlider(int pos, int direction)
     {
-        if (currentSliders[pos] + direction < -1 || currentSliders[pos] + direction > 1)
+        if (currentSliders[pos] + direction < -1 || currentSliders[pos] + direction > 1) //If you are trying to move out of bounds, abort.
             return;
         Audio.PlaySoundAtTransform("slide", sliderKnobs[pos].transform);
         currentSliders[pos] += direction;
@@ -304,11 +314,11 @@ public class SuperparsingScript : MonoBehaviour {
     }
     void SubmitSliders()
     {
-        sliderSubmit.AddInteractionPunch(1);
+        sliderSubmit.AddInteractionPunch();
         Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, sliderSubmit.transform);
         if (stagesSolved[2] || !started)
             return;
-        if (currentSliders.SequenceEqual(correctSliders))
+        if (currentSliders.SequenceEqual(correctSliders)) //If each slider is in the correct position.
         {
             Debug.LogFormat("[Superparsing #{0}] Sliders submitted in positions {1}. Square disarmed.", moduleId, currentSliders.Select(x => sliderPositions[x + 1]).Join(", "));
             Solve(2);
@@ -328,7 +338,7 @@ public class SuperparsingScript : MonoBehaviour {
     }
     IEnumerator DialSpin()
     {
-        yield return new WaitUntil(() => !dialSpinning);
+        yield return new WaitUntil(() => !dialSpinning); //Causes a stacking effect. If multiple instances of this are ran, they will each progress one-by-one. In a way, it uses a queue system, although without the collection.
         dialSpinning = true;
         Vector3 current = dial.transform.localEulerAngles;
         Vector3 target = current + 90 * Vector3.forward;
@@ -344,8 +354,8 @@ public class SuperparsingScript : MonoBehaviour {
     }
     void SubmitDial()
     {
-        dial.AddInteractionPunch();
-        Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, dial.transform);
+        dialSubmit.AddInteractionPunch();
+        Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, dialSubmit.transform);
         if (stagesSolved[3] || !started)
             return;
         if (correctDialPositions.Contains(dialPos))
@@ -361,8 +371,8 @@ public class SuperparsingScript : MonoBehaviour {
     }
     void StartTimer()
     {
-        wordDisplay.AddInteractionPunch(2.5f);
-        Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, wordDisplay.transform);
+        displayBtn.AddInteractionPunch(2.5f);
+        Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, displayBtn.transform);
         if (started || moduleSolved)
             return;
         started = true;
@@ -371,17 +381,17 @@ public class SuperparsingScript : MonoBehaviour {
     }
     #endregion
 
-    void Solve(int pos)
+    void Solve(int pos) //Indicates solving one of the squares. pos represents the solved quadrant. 
     {
         coolingDown = true;
         stagesSolved[pos] = true;
         StartCoroutine(ShowHighlight(pos, false));
         if (stagesSolved.All(x => x))
             StartCoroutine(SolveModule());
-        else StartCoroutine(ReduceTimer(timeLerp / (0.4f * timeLimit)));
+        else StartCoroutine(ReduceTimer(timeLerp / (0.4f * timeLimit))); //Accounts for any time gained while the bar reduces, so that the timer is *actually* 10 seconds.
         Audio.PlaySoundAtTransform("shimmer", transform);
     }
-    IEnumerator ShowHighlight(int pos, bool reverse)
+    IEnumerator ShowHighlight(int pos, bool reverse) //Turns the border white. if reverse is true, it'll play the animation backwards.
     {
         float delta = 0;
         while (delta < 1)
@@ -397,11 +407,11 @@ public class SuperparsingScript : MonoBehaviour {
         moduleSolved = true;
         Debug.LogFormat("[Superparsing #{0}] ALL SQUARES SOLVED // MODULE SHUTTING DOWN // THANK YOU FOR PLAYING.", moduleId);
         started = false;
-        wordDisplay.GetComponentInChildren<TextMesh>().text = string.Empty;
+        displayText.text = string.Empty;
         for (int i = 0; i < 4; i++)
-            StartCoroutine(ShowHighlight(i, true));
-        StartCoroutine(ReduceTimer(0, 0.15f));
-        yield return new WaitUntil(() => timeLerp <= 0);
+            StartCoroutine(ShowHighlight(i, true)); //Fades out all the borders.
+        StartCoroutine(ReduceTimer(0, 0.15f)); //Slowly cools down the module.
+        yield return new WaitUntil(() => timeLerp <= 0); //Waits until the module has fully cooled before calling HandlePass;
         Audio.PlaySoundAtTransform("solve", transform);
         Module.HandlePass();
     }
@@ -412,27 +422,26 @@ public class SuperparsingScript : MonoBehaviour {
         for (int i = 0; i < 4; i++)
         {
             if (stagesSolved[i])
-                StartCoroutine(ShowHighlight(i, true));
+                StartCoroutine(ShowHighlight(i, true)); //Disables each border that is already white.
             stagesSolved[i] = false;
-            StartCoroutine(QuadrantsFade("784B4B".Color()));
+            StartCoroutine(QuadrantsFade(new Color32(0x78, 0x4b, 0x4B, 0xFF))); //Sets the quadrants submod back to their default color.
         }
-        wordDisplay.GetComponentInChildren<TextMesh>().text = string.Empty;
-        prevSwitch = -1;
+        displayText.text = string.Empty;
+        prevSwitch = -1; //Resets the previously flipped switch.
         Module.HandleStrike();
         StartCoroutine(ReduceTimer(0));
     }
     IEnumerator Begin()
     {
-        yield return null;
         yield return new WaitForSeconds(1);
         displayedWord = WordList.words.Where(word => word.Any(ch => GetDialString().Contains(ch))).PickRandom(); //Guarantees that there's a valid dial answer.
-        wordDisplay.GetComponentInChildren<TextMesh>().text = displayedWord;
+        displayText.text = displayedWord;
         Debug.LogFormat("[Superparsing #{0}] The displayed word is {1}. Let the games begin.", moduleId, displayedWord);
         CalculateQuadrants();
-        CalculateSwitches();
+        CalculateSwitches(); 
         CalculateSliders();
         CalculateDial();
-        yield return new WaitForSeconds(1);
+        yield return new WaitForSeconds(1); //Gives one second between displaying the word and starting the timer.
         if (heatUp == null)
             heatUp = StartCoroutine(HeatUp());
     }
@@ -441,16 +450,16 @@ public class SuperparsingScript : MonoBehaviour {
     {
         Debug.LogFormat("[Superparsing #{0}] ::QUADRANTS::", moduleId);
         int ix = int.Parse(Bomb.GetSerialNumberNumbers().Join("")) % 4;
-        int[] sortedOrder = Enumerable.Range(0, 4).OrderBy(x => displayedWord[x]).ToArray();
-        correctQuadrant = sortedOrder[ix];
+        int[] sortedOrder = Enumerable.Range(0, 4).OrderBy(x => displayedWord[x]).ToArray(); //Orders the quadrants by their corresponding letters.
+        correctQuadrant = sortedOrder[ix]; //Indexes into the order by the SN %4 to obtain the correct answer.
         Debug.LogFormat("[Superparsing #{0}] The order generated from the word is {1}. Indexing into this by the serial mod 4 yields {2}.", moduleId, sortedOrder.Select(x => x + 1).Join(), correctQuadrant + 1);
         Debug.LogFormat("[Superparsing #{0}] You should press the {1} quadrant.", moduleId, quadrantPositions[correctQuadrant]);
     }
     void CalculateSwitches()
     {
         Debug.LogFormat("[Superparsing #{0}] ::SWITCHES::", moduleId);
-        Predicate<char> condition;
-        string loggingString = "For the letter to represent a 1,  the letter must ";
+        Func<char, bool> condition; //Returns a value for each letter of the displayed word.
+        string loggingString = "For the letter to represent a 1, the letter must ";
         switch (Bomb.GetOnIndicators().Count() - Bomb.GetOffIndicators().Count())
         {
             case -2: loggingString += string.Format("be before {0} in the alphabet.", Bomb.GetSerialNumber()[3]); condition = x => x < Bomb.GetSerialNumber()[3]; break;
@@ -460,10 +469,10 @@ public class SuperparsingScript : MonoBehaviour {
             case 2: loggingString += string.Format("be later than {0} in the alphabet.", Bomb.GetSerialNumber()[4]); condition = x => x > Bomb.GetSerialNumber()[4]; break;
             default: loggingString += "be a consonant."; condition = x => !"AEIOU".Contains(x); break;
         }
-        bool[] binary = displayedWord.Select(x => condition(x)).ToArray();
+        bool[] binary = displayedWord.Select(x => condition(x)).ToArray(); //Plugs each letter into the condition.
         Debug.LogFormat("[Superparsing #{0}] {1}", moduleId, loggingString);
-        Debug.LogFormat("[Superparsing #{0}] The generated binary from the word is {1}.", moduleId, binary.Select(x => x ? 'T' : 'F').Join(""));
-        for (int i = 0; i < 2; i++)
+        Debug.LogFormat("[Superparsing #{0}] The generated truth values from the word is {1}.", moduleId, binary.Select(x => x ? 'T' : 'F').Join(""));
+        for (int i = 0; i < 2; i++) //Obtains the correct switch position for each pair.
         {
             bool b1 = binary[2 * i];
             bool b2 = binary[2 * i + 1];
@@ -577,7 +586,7 @@ public class SuperparsingScript : MonoBehaviour {
         if (command == "START")
         {
             yield return null;
-            yield return Press(wordDisplay, 0.1f);
+            yield return Press(displayBtn, 0.1f);
         }
         else if (Regex.IsMatch(command, @"^PRESS\s+[TB][LR]$"))
         {
@@ -623,8 +632,8 @@ public class SuperparsingScript : MonoBehaviour {
         while (coolingDown)
             yield return true;
         if (!started)
-            yield return Press(wordDisplay, 0.1f);
-        yield return new WaitUntil(() => wordDisplay.GetComponentInChildren<TextMesh>().text != string.Empty);
+            yield return Press(displayBtn, 0.1f);
+        yield return new WaitUntil(() => displayText.text != string.Empty);
         if (!stagesSolved[0])
             yield return SolveQuadrants();
         if (!stagesSolved[1])

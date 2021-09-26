@@ -5622,7 +5622,7 @@ MonoBehaviour:
   Bomb: {fileID: 114623141084448346}
   Audio: {fileID: 114665292919447182}
   Module: {fileID: 114550361129536164}
-  wordDisplay: {fileID: 114196200118151404}
+  displayBtn: {fileID: 114196200118151404}
   quadrants:
   - {fileID: 114605655291327400}
   - {fileID: 114356885298054232}
@@ -5644,6 +5644,7 @@ MonoBehaviour:
   dialSubmit: {fileID: 114017147357853210}
   modBG: {fileID: 1088423116732244}
   meter: {fileID: 1928606325712430}
+  displayText: {fileID: 102585889874236836}
   highlights:
   - {fileID: 23531533765878582}
   - {fileID: 23858709651319282}
@@ -5663,7 +5664,6 @@ MonoBehaviour:
   - {fileID: 1815480843810488}
   - {fileID: 1835481132783308}
   - {fileID: 1974592442406626}
-  TwitchPlaysActive: 0
 --- !u!114 &114605655291327400
 MonoBehaviour:
   m_ObjectHideFlags: 1
