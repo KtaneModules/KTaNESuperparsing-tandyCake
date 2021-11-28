@@ -412,7 +412,13 @@ public class SuperparsingScript : MonoBehaviour {
             StartCoroutine(ShowHighlight(i, true)); //Fades out all the borders.
         StartCoroutine(ReduceTimer(0, 0.15f)); //Slowly cools down the module.
         yield return new WaitUntil(() => timeLerp <= 0); //Waits until the module has fully cooled before calling HandlePass;
-        Audio.PlaySoundAtTransform("solve", transform);
+        if (WordList.specialWords.Contains(displayedWord)) //Checks for easter egg
+        {
+            Audio.PlaySoundAtTransform("extendedSolve", transform);
+            Debug.LogFormat("[Superparsing #{0}] This module is sponsored by Joba's Chiropractic: “We'll break your neck so you can watch your back!”", moduleId);
+        }
+        else
+            Audio.PlaySoundAtTransform("solve", transform);
         Module.HandlePass();
     }
 
